@@ -1,0 +1,12 @@
+[Unit]
+Description=Litebin Stats Monitor
+After=docker.service
+
+[Service]
+ExecStart=/usr/local/bin/litebin-monitor --port 5008
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target
