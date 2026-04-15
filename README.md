@@ -1,6 +1,6 @@
 # 🚀 Litebin VPS Live Stats
 
-A **lightweight, standalone monitor** that exposes real-time Node System (CPU, RAM, Disk, Load) and Docker telemetry via Server-Sent Events (SSE), alongside a stunning, premium frontend dashboard built with Vite.
+A **lightweight, standalone monitor** that exposes real-time Node System (CPU, RAM, Disk, Load), Docker container telemetry, and Docker daemon process stats via Server-Sent Events (SSE), alongside a stunning, premium frontend dashboard built with Vite.
 
 The goal is to provide a "live infra" feel with exactly **zero overhead** when there are no connected clients, achieving <10MB memory usage through statically linked Go binaries and UPX compression.
 
@@ -10,7 +10,8 @@ The goal is to provide a "live infra" feel with exactly **zero overhead** when t
 
 - **Backend (Monitor)**: Go (Golang) — Single compiled binary.
   - System Stats: `shirou/gopsutil/v3`
-  - Docker Stats: Direct REST to Docker Socket (circumventing heavy official SDK logic)
+  - Docker Container Stats: Direct REST to Docker Socket (circumventing heavy official SDK logic)
+  - Docker Daemon Processes: Host-level process enumeration (dockerd, containerd, docker-proxy, etc.) with RAM & swap tracking, grouped by name
   - Concurrency: Zero-allocation lazy Ticker (starts _only_ when a frontend attempts an SSE stream).
 - **Frontend (Dashboard Demo)**: Vite + Vanilla JS + Glassmorphism CSS.
 
@@ -34,7 +35,7 @@ Although the rest of our stack is built in Rust, we chose Go for this specific m
 
 You can safely develop and test this on your Windows machine before deploying to your target Linux VPS! The monitor is cross-platform aware.
 
-### Step 2.1: Enable Docker Desktop API (Windows Only)
+### 3.1: Enable Docker Desktop API (Windows Only)
 
 Since Windows does not natively use `/var/run/docker.sock` like Linux, the monitor falls back to TCP.
 
@@ -43,7 +44,7 @@ Since Windows does not natively use `/var/run/docker.sock` like Linux, the monit
 3. Check the box for **"Expose daemon on tcp://localhost:2375 without TLS"**.
 4. Click "Apply & restart".
 
-### Step 2.2: Start the Go Backend
+### 3.2: Start the Go Backend
 
 Ensure you are in the project root containing `main.go`.
 
@@ -55,12 +56,11 @@ go mod tidy
 go run . --port 5008 --interval 1s
 *(The backend will securely bind to `http://127.0.0.1:5008`)*
 
-
 # Check current version
 go run . -v
 ```
 
-### Step 2.3: Start the Vite Frontend Demo
+### 3.3: Start the Vite Frontend Demo
 
 Open a completely _new_ terminal window.
 
@@ -74,16 +74,26 @@ Open **`http://localhost:5173/`** in your browser to view the live dashboard!
 
 ---
 
-## 4. 📦 Installation (Linux VPS)
+## 4. 📦 Install & Update (Linux VPS)
 
-The quickest way to get `litebin-monitor` running on your VPS is to pull the pre-built binary directly from the [latest GitHub Release](https://github.com/mtsandeep/l8bin-monitor/releases/latest).
+The install script handles both **fresh installs** and **updates** — it stops the service if running, downloads the latest binary and service file, and starts it back up.
 
-### 4.1: One-liner — Auto-detect Architecture
+### 4.1: Quick Install (Auto-detect Architecture)
 
-This uses GitHub's `releases/latest/download` redirect to always pull the newest binary — no version number needed.
+```bash
+curl -fsSL https://raw.githubusercontent.com/mtsandeep/l8bin-monitor/main/scripts/install.sh | sudo bash
+```
 
-> [!IMPORTANT]
-> `/usr/local/bin` requires root. The commands below download to `/tmp` first, then `sudo mv` into place — this avoids the `curl: (23) write error` that occurs when piping directly to a root-owned path.
+### 4.2: Manual Install
+
+Pick the right binary for your platform:
+
+| Platform | Asset Name |
+| :--- | :--- |
+| Linux x86-64 (most VPS) | `litebin-monitor-linux-amd64` |
+| Linux ARM 64-bit (e.g. Oracle ARM) | `litebin-monitor-linux-arm64` |
+| macOS Apple Silicon | `litebin-monitor-darwin-arm64` |
+| macOS Intel | `litebin-monitor-darwin-amd64` |
 
 ```bash
 # Download binary
@@ -102,63 +112,12 @@ sudo systemctl enable litebin-monitor
 sudo systemctl start litebin-monitor
 ```
 
-### 4.2: Manual — Choose Your Platform
-
-If you prefer to pick a specific build, replace the asset name with your target:
-
-| Platform | Asset Name |
-| :--- | :--- |
-| Linux x86-64 (most VPS) | `litebin-monitor-linux-amd64` |
-| Linux ARM 64-bit (e.g. Oracle ARM) | `litebin-monitor-linux-arm64` |
-| macOS Apple Silicon | `litebin-monitor-darwin-arm64` |
-| macOS Intel | `litebin-monitor-darwin-amd64` |
-
-```bash
-curl -fsSL "https://github.com/mtsandeep/l8bin-monitor/releases/latest/download/litebin-monitor-linux-amd64" \
-  -o /tmp/litebin-monitor
-sudo mv /tmp/litebin-monitor /usr/local/bin/litebin-monitor
-sudo chmod +x /usr/local/bin/litebin-monitor
-```
-
-### 4.3: Verify Installation
+### 4.3: Verify
 
 ```bash
 litebin-monitor -v
 # litebin-monitor v1.x.x
 ```
-
-### 4.4: Updating an Existing Installation
-
-If `litebin-monitor` is already running as a systemd service, **stop it first** — otherwise the binary is locked and the write will fail.
-
-```bash
-# 1. Stop the running service
-sudo systemctl stop litebin-monitor
-
-# 2. Download the latest binary
-ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-curl -fsSL "https://github.com/mtsandeep/l8bin-monitor/releases/latest/download/litebin-monitor-linux-${ARCH}" \
-  -o /tmp/litebin-monitor
-
-# 3. Replace the binary
-sudo mv /tmp/litebin-monitor /usr/local/bin/litebin-monitor
-sudo chmod +x /usr/local/bin/litebin-monitor
-
-# 4. Update service file (if changed)
-curl -fsSL "https://raw.githubusercontent.com/mtsandeep/l8bin-monitor/main/litebin-monitor.service" \
-  -o /tmp/litebin-monitor.service
-sudo mv /tmp/litebin-monitor.service /etc/systemd/system/litebin-monitor.service
-sudo systemctl daemon-reload
-
-# 5. Restart the service
-sudo systemctl start litebin-monitor
-
-# 6. Confirm the new version
-litebin-monitor -v
-```
-
-> [!TIP]
-> After installing, jump to [Section 6 (Persistence & Proxy)](#6-️-persistence--proxy) to set up a systemd service and keep it running after reboots.
 
 ---
 
@@ -208,13 +167,9 @@ mv litebin-monitor /usr/local/bin/
 
 ---
 
-## 6. ⚙️ Persistence & Proxy
+## 6. ⚙️ Configuration
 
-The monitor is designed to run as a background service.
-
-### 6.1: CLI Configuration
-
-You can customize the monitor's behavior using the following command-line flags:
+### 6.1: CLI Flags
 
 | Flag              | Type       | Default      | Description                                               |
 | :---------------- | :--------- | :----------- | :-------------------------------------------------------- |
@@ -224,7 +179,7 @@ You can customize the monitor's behavior using the following command-line flags:
 | `--strip-prefix`  | `string`   | `""`         | Prefix to remove from container names (e.g., `litebin-`). |
 | `--version`, `-v` | `bool`     | `false`      | Show the current version and exit.                        |
 
-**Example:**
+**Examples:**
 
 ```bash
 # Default: localhost only
@@ -237,7 +192,15 @@ You can customize the monitor's behavior using the following command-line flags:
 ./litebin-monitor --host 172.18.0.1 --port 8080 --interval 500ms --strip-prefix "prod-"
 ```
 
-### 6.2: systemd Service Setup
+### 6.2: systemd Service
+
+The install script sets this up automatically. To customize, edit the service file:
+
+```bash
+sudo systemctl edit litebin-monitor --full
+```
+
+Default service file:
 
 ```ini
 [Unit]
@@ -254,17 +217,9 @@ User=root
 WantedBy=multi-user.target
 ```
 
-Enable and start it:
+### 6.3: Reverse Proxy (Nginx)
 
-```bash
-systemctl daemon-reload
-systemctl enable litebin-monitor
-systemctl start litebin-monitor
-```
-
-### Reverse Proxy
-
-To securely expose the `/stream` to the public without exposing the raw port, proxy it using Nginx:
+To securely expose the monitor to the public without exposing the raw port:
 
 ```nginx
 location /stats/stream {

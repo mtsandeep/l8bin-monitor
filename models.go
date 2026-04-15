@@ -49,10 +49,31 @@ type MonitorStats struct {
 	Goroutines int    `json:"goroutines"`
 }
 
+type DockerProcess struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	RAM  uint64 `json:"ram"`
+	Swap uint64 `json:"swap"`
+}
+
+type DockerProcessGroup struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+	RAM   uint64 `json:"ram"`
+	Swap  uint64 `json:"swap"`
+}
+
+type DockerProcesses struct {
+	TotalRAM  uint64               `json:"total_ram"`
+	Groups    []DockerProcessGroup `json:"groups"`
+	Processes []DockerProcess      `json:"processes"`
+}
+
 type AllStats struct {
-	System     SystemStats      `json:"system"`
-	Containers []ContainerStats `json:"containers"`
-	Host       HostInfo         `json:"host"`
-	Monitor    MonitorStats     `json:"monitor"`
-	Timestamp  int64            `json:"timestamp"`
+	System      SystemStats      `json:"system"`
+	Containers  []ContainerStats `json:"containers"`
+	DockerProcs DockerProcesses  `json:"docker_procs"`
+	Host        HostInfo         `json:"host"`
+	Monitor     MonitorStats     `json:"monitor"`
+	Timestamp   int64            `json:"timestamp"`
 }

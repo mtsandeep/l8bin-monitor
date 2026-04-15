@@ -43,6 +43,15 @@ const monitorVer = document.getElementById('monitor-ver');
 const monitorMem = document.getElementById('monitor-mem');
 const monitorUptime = document.getElementById('monitor-uptime');
 
+const dockerProcsSection = document.getElementById('docker-procs-section');
+const dockerProcsToggle = document.getElementById('docker-procs-toggle');
+const dockerProcsChevron = document.getElementById('docker-procs-chevron');
+const dockerProcsDetail = document.getElementById('docker-procs-detail');
+const dockerProcsCount = document.getElementById('docker-procs-count');
+const dockerProcsRam = document.getElementById('docker-procs-ram');
+const dockerProcsGroups = document.getElementById('docker-procs-groups');
+const dockerProcsList = document.getElementById('docker-procs-list');
+
 let lastData = null;
 let activeStatusFilter = null;
 
@@ -53,6 +62,20 @@ window.setFilter = function (status) {
 };
 
 // ═══════ UTILITIES ═══════
+window.toggleDockerProcs = function() {
+    if (!dockerProcsDetail) return;
+    const isHidden = dockerProcsDetail.classList.contains('hidden');
+    if (isHidden) {
+        dockerProcsDetail.classList.remove('hidden');
+        if (dockerProcsChevron) dockerProcsChevron.style.transform = 'rotate(90deg)';
+        if (dockerProcsToggle) dockerProcsToggle.classList.add('rounded-b-none');
+    } else {
+        dockerProcsDetail.classList.add('hidden');
+        if (dockerProcsChevron) dockerProcsChevron.style.transform = 'rotate(0deg)';
+        if (dockerProcsToggle) dockerProcsToggle.classList.remove('rounded-b-none');
+    }
+};
+
 function setConnectionStatus(status) {
     if (!connectionLabel || !statusDot || !statusWrapper) return;
     
@@ -212,11 +235,55 @@ function updateDashboard(data) {
         renderContainers(data.containers);
     }
 
+    // ── Docker Base Processes ──
+    if (data.docker_procs) {
+        renderDockerProcesses(data.docker_procs);
+    } else {
+        if (dockerProcsSection) dockerProcsSection.classList.add('hidden');
+    }
+
     // ── Monitor Self-Stats ──
     if (data.monitor) {
         if (monitorVer) monitorVer.textContent = data.monitor.version || 'vdev';
         if (monitorMem) monitorMem.textContent = `${data.monitor.memory_mb.toFixed(1)} MB`;
         if (monitorUptime) monitorUptime.textContent = formatUptime(data.monitor.uptime);
+    }
+}
+
+function renderDockerProcesses(dp) {
+    if (!dp || !dp.processes || dp.processes.length === 0) {
+        if (dockerProcsSection) dockerProcsSection.classList.add('hidden');
+        return;
+    }
+    if (dockerProcsSection) dockerProcsSection.classList.remove('hidden');
+
+    if (dockerProcsCount) {
+        dockerProcsCount.textContent = `${dp.processes.length} process${dp.processes.length !== 1 ? 'es' : ''}`;
+    }
+    if (dockerProcsRam) {
+        dockerProcsRam.textContent = formatBytes(dp.total_ram);
+    }
+
+    if (dockerProcsGroups) {
+        dockerProcsGroups.innerHTML = (dp.groups || []).map(g => {
+            const countStr = g.count > 1 ? ` x${g.count}` : '';
+            return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/60 border border-slate-700/40 text-[0.65rem] font-mono text-slate-300">
+                <span class="font-semibold">${g.name}${countStr}</span>
+                <span class="text-slate-500">${formatBytes(g.ram)}</span>
+            </span>`;
+        }).join('');
+    }
+
+    if (dockerProcsList && !dockerProcsDetail.classList.contains('hidden')) {
+        dockerProcsList.innerHTML = dp.processes.map(p => {
+            const swapStr = p.swap > 0 ? formatBytes(p.swap) : '--';
+            return `<div class="container-row">
+                <div class="col-span-2"><span class="c-metric-val text-slate-400">${p.id}</span></div>
+                <div class="col-span-5"><span class="c-name">${p.name}</span></div>
+                <div class="col-span-3 text-right"><span class="c-metric-val">${formatBytes(p.ram)}</span></div>
+                <div class="col-span-2 text-right"><span class="c-metric-val text-slate-500">${swapStr}</div>
+            </div>`;
+        }).join('');
     }
 }
 

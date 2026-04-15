@@ -89,6 +89,8 @@ func fetchAll() AllStats {
 		all.Containers = conts
 	}
 
+	all.DockerProcs = getDockerProcesses()
+
 	if hInfo, err := getHostInfo(); err == nil {
 		all.Host = hInfo
 	}
