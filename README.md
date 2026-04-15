@@ -86,11 +86,20 @@ This uses GitHub's `releases/latest/download` redirect to always pull the newest
 > `/usr/local/bin` requires root. The commands below download to `/tmp` first, then `sudo mv` into place — this avoids the `curl: (23) write error` that occurs when piping directly to a root-owned path.
 
 ```bash
+# Download binary
 ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 curl -fsSL "https://github.com/mtsandeep/l8bin-monitor/releases/latest/download/litebin-monitor-linux-${ARCH}" \
   -o /tmp/litebin-monitor
 sudo mv /tmp/litebin-monitor /usr/local/bin/litebin-monitor
 sudo chmod +x /usr/local/bin/litebin-monitor
+
+# Install systemd service
+curl -fsSL "https://raw.githubusercontent.com/mtsandeep/l8bin-monitor/main/litebin-monitor.service" \
+  -o /tmp/litebin-monitor.service
+sudo mv /tmp/litebin-monitor.service /etc/systemd/system/litebin-monitor.service
+sudo systemctl daemon-reload
+sudo systemctl enable litebin-monitor
+sudo systemctl start litebin-monitor
 ```
 
 ### 4.2: Manual — Choose Your Platform
@@ -126,18 +135,25 @@ If `litebin-monitor` is already running as a systemd service, **stop it first** 
 # 1. Stop the running service
 sudo systemctl stop litebin-monitor
 
-# 2. Download the latest binary to /tmp
-curl -fsSL "https://github.com/mtsandeep/l8bin-monitor/releases/latest/download/litebin-monitor-linux-amd64" \
+# 2. Download the latest binary
+ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+curl -fsSL "https://github.com/mtsandeep/l8bin-monitor/releases/latest/download/litebin-monitor-linux-${ARCH}" \
   -o /tmp/litebin-monitor
 
 # 3. Replace the binary
 sudo mv /tmp/litebin-monitor /usr/local/bin/litebin-monitor
 sudo chmod +x /usr/local/bin/litebin-monitor
 
-# 4. Restart the service
+# 4. Update service file (if changed)
+curl -fsSL "https://raw.githubusercontent.com/mtsandeep/l8bin-monitor/main/litebin-monitor.service" \
+  -o /tmp/litebin-monitor.service
+sudo mv /tmp/litebin-monitor.service /etc/systemd/system/litebin-monitor.service
+sudo systemctl daemon-reload
+
+# 5. Restart the service
 sudo systemctl start litebin-monitor
 
-# 5. Confirm the new version
+# 6. Confirm the new version
 litebin-monitor -v
 ```
 

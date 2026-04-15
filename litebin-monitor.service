@@ -3,7 +3,7 @@ Description=Litebin Stats Monitor
 After=docker.service
 
 [Service]
-ExecStart=/usr/local/bin/litebin-monitor --port 5008
+ExecStart=/usr/local/bin/litebin-monitor --host 172.18.0.1 --port 5008
 Restart=always
 RestartSec=3
 User=root
