@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -96,7 +99,9 @@ func fetchDockerProcessesInBackground() {
 		var ram, swap uint64
 		if memInfo, err := p.MemoryInfo(); err == nil {
 			ram = memInfo.RSS
-			swap = memInfo.Swap
+		}
+		if runtime.GOOS == "linux" {
+			swap = readProcSwap(p.Pid)
 		}
 
 		totalRAM += ram
@@ -144,4 +149,32 @@ func fetchDockerProcessesInBackground() {
 	dockerProcCache = dp
 	dockerProcExpiry = time.Now().Add(3 * time.Second)
 	dockerProcMu.Unlock()
+}
+
+// readProcSwap reads VmSwap directly from /proc/[pid]/status.
+// gopsutil's MemoryInfo() only reads /proc/[pid]/statm which lacks swap data.
+func readProcSwap(pid int32) uint64 {
+	f, err := os.Open(fmt.Sprintf("/proc/%d/status", pid))
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "VmSwap:") {
+			// VmSwap: 0 kB
+			fields := strings.Fields(line)
+			if len(fields) < 2 {
+				return 0
+			}
+			v, err := strconv.ParseUint(fields[1], 10, 64)
+			if err != nil {
+				return 0
+			}
+			return v * 1024 // kB to bytes
+		}
+	}
+	return 0
 }
