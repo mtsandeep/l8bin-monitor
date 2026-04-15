@@ -5,6 +5,11 @@ type RAMStats struct {
 	Total uint64 `json:"total"`
 }
 
+type SwapStats struct {
+	Used  uint64 `json:"used"`
+	Total uint64 `json:"total"`
+}
+
 type DiskStats struct {
 	Used  uint64 `json:"used"`
 	Total uint64 `json:"total"`
@@ -14,6 +19,7 @@ type SystemStats struct {
 	CPUBurst float64   `json:"cpu_burst"`
 	CPUAvg   float64   `json:"cpu_avg"`
 	RAM      RAMStats  `json:"ram"`
+	Swap     SwapStats `json:"swap"`
 	Disk     DiskStats `json:"disk"`
 	Load     []float64 `json:"load"`
 }

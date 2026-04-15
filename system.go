@@ -56,6 +56,13 @@ func getSystemStats() (SystemStats, error) {
 		stats.RAM.Used = v.Used
 	}
 
+	// Swap
+	s, err := mem.SwapMemory()
+	if err == nil {
+		stats.Swap.Total = s.Total
+		stats.Swap.Used = s.Used
+	}
+
 	// Disk (Cached for 1 hour, fetched in background)
 	diskStatsMu.RLock()
 	stats.Disk = cachedDiskStats
