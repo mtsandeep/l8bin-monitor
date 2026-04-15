@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"net"
 	"net/http"
 	"runtime"
@@ -11,6 +12,14 @@ import (
 	"sync"
 	"time"
 )
+
+// containerUID derives a stable, opaque 8-char hex ID from the real container
+// ID using FNV-1a. Safe to expose — non-reversible, not the actual Docker ID.
+func containerUID(realID string) string {
+	h := fnv.New32a()
+	h.Write([]byte(realID))
+	return fmt.Sprintf("%08x", h.Sum32())
+}
 
 var dockerClient *http.Client
 var dockerEndpoint string
@@ -57,7 +66,10 @@ type dockerStats struct {
 		SystemCPUUsage uint64 `json:"system_cpu_usage"`
 	} `json:"precpu_stats"`
 	MemoryStats struct {
-		Usage uint64 `json:"usage"`
+		Usage uint64            `json:"usage"`
+		// Stats map contains cache (cgroupsv1) and inactive_file (cgroupsv2).
+		// Docker Desktop / docker stats subtract these to get the working set.
+		Stats map[string]uint64 `json:"stats"`
 	} `json:"memory_stats"`
 }
 
@@ -146,12 +158,9 @@ func getDockerStats() ([]ContainerStats, error) {
 		if stripPrefix != "" {
 			name = strings.TrimPrefix(name, stripPrefix)
 		}
-		if len(name) > 10 {
-			name = name[:10] + "..."
-		}
 
 		cstat := ContainerStats{
-			ID:     dc.Id[:12],
+			ID:     containerUID(dc.Id),
 			Name:   name,
 			Status: dc.State,
 		}
@@ -209,7 +218,20 @@ func fetchContainerStat(id string) (singleStat, error) {
 		return s, err
 	}
 
-	s.mem = ds.MemoryStats.Usage
+	// Match Docker Desktop / docker stats: subtract page cache from raw usage.
+	// cgroupsv2 uses inactive_file; cgroupsv1 uses cache.
+	rawMem := ds.MemoryStats.Usage
+	var pageCache uint64
+	if v, ok := ds.MemoryStats.Stats["inactive_file"]; ok && v > 0 {
+		pageCache = v // cgroupsv2
+	} else if v, ok := ds.MemoryStats.Stats["cache"]; ok {
+		pageCache = v // cgroupsv1
+	}
+	if rawMem > pageCache {
+		s.mem = rawMem - pageCache
+	} else {
+		s.mem = rawMem
+	}
 
 	cpuDelta := float64(ds.CPUStats.CPUUsage.TotalUsage - ds.PreCPUStats.CPUUsage.TotalUsage)
 	systemDelta := float64(ds.CPUStats.SystemCPUUsage - ds.PreCPUStats.SystemCPUUsage)

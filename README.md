@@ -180,11 +180,3 @@ location /stats/stream {
     proxy_cache off;
 }
 ```
-
-    proxy_cache off;
-
-}
-
-```
-
-```
