@@ -15,6 +15,7 @@ import (
 var startTime = time.Now()
 
 var (
+	host        string
 	port        int
 	interval    time.Duration
 	stripPrefix string
@@ -30,6 +31,7 @@ var (
 )
 
 func init() {
+	flag.StringVar(&host, "host", "127.0.0.1", "Host address to bind the HTTP server to")
 	flag.IntVar(&port, "port", 5008, "Port to run the HTTP server on")
 	flag.DurationVar(&interval, "interval", 1*time.Second, "Interval for caching and streaming stats")
 	flag.StringVar(&stripPrefix, "strip-prefix", "", "Prefix string to strip from docker container names")
@@ -231,7 +233,7 @@ func main() {
 	mux.HandleFunc("/all", handleAll)
 	mux.HandleFunc("/stream", handleStream)
 
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	addr := fmt.Sprintf("%s:%d", host, port)
 	log.Printf("Starting Litebin Stats Monitor on http://%s with interval %v", addr, interval)
 
 	server := &http.Server{

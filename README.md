@@ -200,17 +200,25 @@ The monitor is designed to run as a background service.
 
 You can customize the monitor's behavior using the following command-line flags:
 
-| Flag              | Type       | Default | Description                                               |
-| :---------------- | :--------- | :------ | :-------------------------------------------------------- |
-| `--port`          | `int`      | `5008`  | Port to run the HTTP server on.                           |
-| `--interval`      | `duration` | `1s`    | Update interval (e.g., `500ms`, `2s`).                    |
-| `--strip-prefix`  | `string`   | `""`    | Prefix to remove from container names (e.g., `litebin-`). |
-| `--version`, `-v` | `bool`     | `false` | Show the current version and exit.                        |
+| Flag              | Type       | Default      | Description                                               |
+| :---------------- | :--------- | :----------- | :-------------------------------------------------------- |
+| `--host`          | `string`   | `127.0.0.1`  | Host address to bind the HTTP server to.                  |
+| `--port`          | `int`      | `5008`       | Port to run the HTTP server on.                           |
+| `--interval`      | `duration` | `1s`         | Update interval (e.g., `500ms`, `2s`).                    |
+| `--strip-prefix`  | `string`   | `""`         | Prefix to remove from container names (e.g., `litebin-`). |
+| `--version`, `-v` | `bool`     | `false`      | Show the current version and exit.                        |
 
 **Example:**
 
 ```bash
-./litebin-monitor --port 8080 --interval 500ms --strip-prefix "prod-"
+# Default: localhost only
+./litebin-monitor --port 5008
+
+# Bind to Docker network gateway so containers can access it
+./litebin-monitor --host 172.18.0.1 --port 5008
+
+# With all options
+./litebin-monitor --host 172.18.0.1 --port 8080 --interval 500ms --strip-prefix "prod-"
 ```
 
 ### 6.2: systemd Service Setup
@@ -221,7 +229,7 @@ Description=Litebin Stats Monitor
 After=docker.service
 
 [Service]
-ExecStart=/usr/local/bin/litebin-monitor --port 5008
+ExecStart=/usr/local/bin/litebin-monitor --host 172.18.0.1 --port 5008
 Restart=always
 RestartSec=3
 User=root
